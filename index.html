@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Subject Line Scorer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0f1117;
+    color: #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 16px 80px;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  .header h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; color: #f8fafc; }
+  .header p  { margin-top: 8px; font-size: 14px; color: #64748b; }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    background: #1e2130;
+    border: 1px solid #2d3348;
+    border-radius: 10px;
+    padding: 4px;
+    margin-bottom: 28px;
+    width: 100%;
+    max-width: 640px;
+  }
+  .tab {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    border-radius: 7px;
+    transition: all 0.2s;
+    user-select: none;
+  }
+  .tab.active { background: #6366f1; color: #fff; }
+  .tab:not(.active):hover { color: #cbd5e1; }
+
+  .panel { display: none; width: 100%; max-width: 640px; flex-direction: column; gap: 16px; }
+  .panel.active { display: flex; }
+
+  /* Cards */
+  .card {
+    background: #1e2130;
+    border: 1px solid #2d3348;
+    border-radius: 14px;
+    padding: 24px;
+  }
+
+  .card-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #64748b;
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  .input-row { display: flex; gap: 10px; }
+
+  input[type="text"], select {
+    flex: 1;
+    background: #0f1117;
+    border: 1px solid #2d3348;
+    border-radius: 8px;
+    padding: 11px 14px;
+    font-size: 14px;
+    color: #f1f5f9;
+    outline: none;
+    transition: border-color 0.2s;
+    width: 100%;
+  }
+  input[type="text"]::placeholder { color: #3d4461; }
+  input[type="text"]:focus, select:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+  }
+  select { appearance: none; cursor: pointer; color: #94a3b8; }
+  select option { background: #1e2130; color: #f1f5f9; }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .form-grid .full { grid-column: 1 / -1; }
+
+  .field { display: flex; flex-direction: column; gap: 6px; }
+
+  button {
+    background: #6366f1;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 11px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    white-space: nowrap;
+  }
+  button:hover  { background: #5254cc; }
+  button:active { transform: scale(0.97); }
+  button.full   { width: 100%; padding: 13px; font-size: 15px; }
+
+  button.secondary {
+    background: transparent;
+    border: 1px solid #2d3348;
+    color: #94a3b8;
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+  button.secondary:hover { border-color: #6366f1; color: #a5b4fc; background: transparent; }
+
+  /* Score results */
+  .overall-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .overall-label { font-size: 13px; color: #64748b; }
+  .overall-subject { font-size: 14px; color: #94a3b8; font-style: italic; margin-top: 2px; max-width: 380px; word-break: break-word; }
+  .big-score { font-size: 48px; font-weight: 800; line-height: 1; letter-spacing: -2px; }
+  .big-denom { font-size: 13px; color: #4a5568; }
+  .grade-pill {
+    display: inline-block; margin-top: 6px;
+    padding: 3px 10px; border-radius: 99px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  }
+
+  .dim-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 0; border-top: 1px solid #1a1f2e;
+  }
+  .dim-icon  { font-size: 16px; width: 24px; text-align: center; flex-shrink: 0; }
+  .dim-info  { flex: 1; min-width: 0; }
+  .dim-name  { font-size: 13px; font-weight: 600; color: #cbd5e1; }
+  .dim-desc  { font-size: 11px; color: #475569; margin-top: 2px; }
+  .dim-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+  .dim-score { font-size: 20px; font-weight: 800; }
+  .bar-track { width: 60px; height: 3px; background: #2d3348; border-radius: 99px; overflow: hidden; }
+  .bar-fill  { height: 100%; border-radius: 99px; }
+
+  /* Fix box */
+  .fix-box {
+    background: #12151f;
+    border: 1px solid #2d3348;
+    border-left: 3px solid #f59e0b;
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 13px;
+    color: #94a3b8;
+    line-height: 1.55;
+  }
+  .fix-box strong { color: #fbbf24; }
+
+  /* Generated subject lines */
+  .gen-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .gen-item {
+    background: #12151f;
+    border: 1px solid #2d3348;
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .gen-item:hover { border-color: #6366f1; }
+
+  .gen-left { flex: 1; min-width: 0; }
+  .gen-subject { font-size: 14px; color: #e2e8f0; font-weight: 500; margin-bottom: 4px; }
+  .gen-pattern { font-size: 11px; color: #475569; }
+
+  .gen-score-wrap { display: flex; flex-direction: column; align-items: center; gap: 2px; flex-shrink: 0; }
+  .gen-score { font-size: 22px; font-weight: 800; }
+  .gen-denom { font-size: 10px; color: #3d4461; }
+
+  .copy-hint { font-size: 10px; color: #3d4461; margin-top: 6px; text-align: center; }
+
+  /* Patterns panel */
+  .pattern-section { margin-bottom: 4px; }
+  .pattern-section h3 { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #6366f1; margin-bottom: 10px; }
+
+  .pattern-card {
+    background: #12151f;
+    border: 1px solid #2d3348;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+  }
+  .pattern-formula { font-size: 13px; font-weight: 600; color: #a5b4fc; font-family: 'SF Mono', 'Menlo', monospace; margin-bottom: 6px; }
+  .pattern-example { font-size: 13px; color: #94a3b8; margin-bottom: 4px; }
+  .pattern-why { font-size: 11px; color: #475569; }
+
+  .score-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 99px;
+    font-size: 10px; font-weight: 700; margin-left: 8px; vertical-align: middle;
+  }
+
+  /* Word count */
+  .wc { font-size: 11px; color: #3d4461; margin-top: 6px; text-align: right; min-height: 14px; }
+  .wc.good { color: #10b981; }
+  .wc.warn { color: #f59e0b; }
+
+  /* Colour helpers */
+  .green { color: #10b981; } .amber { color: #f59e0b; } .red { color: #ef4444; }
+  .bg-green { background: rgba(16,185,129,0.12); color: #10b981; }
+  .bg-amber { background: rgba(245,158,11,0.12); color: #f59e0b; }
+  .bg-red   { background: rgba(239,68,68,0.12);  color: #ef4444; }
+  .bar-green { background: #10b981; }
+  .bar-amber { background: #f59e0b; }
+  .bar-red   { background: #ef4444; }
+
+  .fade-in { animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .copied { color: #10b981 !important; transition: color 0.2s; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Subject Line Scorer</h1>
+  <p>Score a subject line — or generate proven ones from scratch.</p>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('generate')">✨ Generate</div>
+  <div class="tab" onclick="switchTab('score')">🎯 Score Mine</div>
+  <div class="tab" onclick="switchTab('patterns')">📖 Patterns</div>
+</div>
+
+<!-- ───── GENERATE PANEL ───── -->
+<div class="panel active" id="panel-generate">
+  <div class="card">
+    <span class="card-label">Tell me about your prospect</span>
+    <div class="form-grid">
+      <div class="field">
+        <label class="card-label" style="margin-bottom:0">First name</label>
+        <input type="text" id="g-name" placeholder="e.g. Sarah" />
+      </div>
+      <div class="field">
+        <label class="card-label" style="margin-bottom:0">Company</label>
+        <input type="text" id="g-company" placeholder="e.g. Freshworks" />
+      </div>
+      <div class="field">
+        <label class="card-label" style="margin-bottom:0">Their role / industry</label>
+        <input type="text" id="g-role" placeholder="e.g. VP Sales, SaaS" />
+      </div>
+      <div class="field">
+        <label class="card-label" style="margin-bottom:0">Your product / value</label>
+        <input type="text" id="g-value" placeholder="e.g. CRM for enterprise teams" />
+      </div>
+      <div class="field full">
+        <label class="card-label" style="margin-bottom:0">Pain point or trigger (optional)</label>
+        <input type="text" id="g-pain" placeholder="e.g. scaling their sales team, just raised Series B" />
+      </div>
+    </div>
+    <button class="full" onclick="generate()">Generate subject lines →</button>
+  </div>
+
+  <div id="gen-results" style="display:none" class="card fade-in">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <span class="card-label" style="margin-bottom:0">Subject lines — click to copy</span>
+      <button class="secondary" onclick="generate()">↻ Regenerate</button>
+    </div>
+    <div class="gen-list" id="gen-list"></div>
+    <div class="copy-hint" id="copy-hint"></div>
+  </div>
+</div>
+
+<!-- ───── SCORE PANEL ───── -->
+<div class="panel" id="panel-score">
+  <div class="card">
+    <span class="card-label">Paste your subject line</span>
+    <div class="input-row">
+      <input type="text" id="s-input" placeholder="e.g. Quick question about your Q1 pipeline" onkeydown="if(event.key==='Enter') scoreIt()" />
+      <button onclick="scoreIt()">Score</button>
+    </div>
+    <div class="wc" id="s-wc"></div>
+  </div>
+
+  <div id="score-results" style="display:none" class="card fade-in">
+    <div class="overall-row">
+      <div>
+        <div class="overall-label">Overall score</div>
+        <div class="overall-subject" id="r-subject"></div>
+      </div>
+      <div style="text-align:center">
+        <div class="big-score" id="r-total"></div>
+        <div class="big-denom">out of 50</div>
+        <span class="grade-pill" id="r-grade"></span>
+      </div>
+    </div>
+    <div id="r-dims"></div>
+  </div>
+
+  <div class="fix-box fade-in" id="r-fix" style="display:none">
+    <span>💡 </span><span id="r-fix-text"></span>
+  </div>
+
+  <!-- Alternatives after scoring -->
+  <div id="r-alts-wrap" style="display:none" class="card fade-in">
+    <span class="card-label">Better alternatives</span>
+    <div class="gen-list" id="r-alts"></div>
+    <div class="copy-hint">Click any line to copy</div>
+  </div>
+</div>
+
+<!-- ───── PATTERNS PANEL ───── -->
+<div class="panel" id="panel-patterns">
+  <div class="card">
+    <div class="pattern-section">
+      <h3>🏆 The formulas that actually work</h3>
+
+      <div class="pattern-card">
+        <div class="pattern-formula">"Quick question about [Company]'s [topic]?"</div>
+        <div class="pattern-example">→ "Quick question about Freshworks' onboarding flow?"</div>
+        <div class="pattern-why">Short, personal, curiosity-gap. Scores 40–46/50 consistently.</div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pattern-formula">"Idea for [Company]'s [role/team]"</div>
+        <div class="pattern-example">→ "Idea for Freshworks' sales team"</div>
+        <div class="pattern-why">One of the highest-converting cold email formulas ever tested. 5 words, crystal clear.</div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pattern-formula">"[Name], saw your post on [topic]"</div>
+        <div class="pattern-example">→ "Sarah, saw your post on scaling SDR teams"</div>
+        <div class="pattern-why">Proves you did homework. Disarms immediately. High reply rates.</div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pattern-formula">"How [similar company] [achieved result]"</div>
+        <div class="pattern-example">→ "How HubSpot cut their ramp time by 30%"</div>
+        <div class="pattern-why">Social proof + curiosity gap. Reader wants to know how.</div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pattern-formula">"[Trigger event] → thought of you"</div>
+        <div class="pattern-example">→ "Saw [Company] just raised a Series B — thought of you"</div>
+        <div class="pattern-why">Timely and personal. Shows you're paying attention.</div>
+      </div>
+
+      <div class="pattern-card">
+        <div class="pattern-formula">"[Name] — [specific, unexpected statement]"</div>
+        <div class="pattern-example">→ "Sarah — most VP Sales skip this one step"</div>
+        <div class="pattern-why">Pattern interrupt. The name + dash stops the scroll.</div>
+      </div>
+    </div>
+
+    <div class="pattern-section" style="margin-top:20px">
+      <h3>🚫 What tanks your score every time</h3>
+
+      <div class="pattern-card">
+        <div class="pattern-formula" style="color:#ef4444">"Free", "Guaranteed", "Urgent", "% off"</div>
+        <div class="pattern-why">Spam filter triggers. Filters catch them before humans do.</div>
+      </div>
+      <div class="pattern-card">
+        <div class="pattern-formula" style="color:#ef4444">Subject lines over 12 words</div>
+        <div class="pattern-why">Gets cut off on mobile. Reader gives up before they start.</div>
+      </div>
+      <div class="pattern-card">
+        <div class="pattern-formula" style="color:#ef4444">"Following up" / "Checking in" / "Just circling back"</div>
+        <div class="pattern-why">Zero curiosity, zero personalisation. The laziest subject lines in existence.</div>
+      </div>
+      <div class="pattern-card">
+        <div class="pattern-formula" style="color:#ef4444">ALL CAPS or excessive punctuation!!!</div>
+        <div class="pattern-why">Screams spam. Also just annoying.</div>
+      </div>
+    </div>
+
+    <div class="pattern-section" style="margin-top:20px">
+      <h3>📐 The golden rules</h3>
+      <div style="font-size:13px; line-height:1.8; color:#94a3b8;">
+        <div>✅ &nbsp;5–8 words is the sweet spot</div>
+        <div>✅ &nbsp;Mention their name OR company — not both</div>
+        <div>✅ &nbsp;One idea only — never cram two topics in</div>
+        <div>✅ &nbsp;A question usually outperforms a statement</div>
+        <div>✅ &nbsp;Specific beats clever — "30%" beats "significant"</div>
+        <div>✅ &nbsp;Write it last — after you know exactly what value you're delivering</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ──────────────────── SCORING ENGINE ──────────────────── */
+
+const SPAM_WORDS = ['free','urgent','guaranteed','% off','%off','discount','offer',
+  'limited time','act now','click here','buy now','order now','save big','cash',
+  'prize','win ','winner','congratulations','no cost','risk-free','risk free',
+  '100%','double your','earn extra','make money','work from home','you won',
+  'lowest price','cheap','promise','special promotion','clearance','incredible offer',
+  'once in a lifetime','last chance','final notice','important notice'];
+
+const PERSONAL_RE = [/\b(your|you)\b/i,/\b(saw|noticed|read|heard|loved|checked|found|following)\b/i,/\bat\s+\w+/i,/\[.*?\]/,/\b(team|company|role|post|article|product|hire|launch|raise|raised|funding|pipeline|quota)\b/i];
+const CURIOSITY_RE = [/\?$/,/\b(why|how|what|when|who|which)\b/i,/\b(secret|truth|real reason|surprising|counterintuitive|unexpected|little-known|mistake|myth)\b/i,/\b(idea|thought|question|insight|discovery)\b/i,/\b(help|fix|solve|improve|boost|grow|cut|save|double|triple|reduce|increase)\b/i];
+
+function wc(s){ return s.trim().split(/\s+/).filter(Boolean).length; }
+
+function cc(n){
+  if(n>=8) return {t:'green',bg:'bg-green',b:'bar-green'};
+  if(n>=5) return {t:'amber',bg:'bg-amber',b:'bar-amber'};
+  return {t:'red',bg:'bg-red',b:'bar-red'};
+}
+
+function sPersonal(s){
+  let h=0; PERSONAL_RE.forEach(r=>{if(r.test(s))h++;});
+  const sc=[2,5,7,9,10][Math.min(h,4)];
+  const d={2:'No personal signals',5:'Weakly personal',7:'References their context',9:'Strong personal hook',10:'Highly specific'}[sc]||'Strong personal hook';
+  return {score:sc,detail:d};
+}
+
+function sCuriosity(s){
+  let h=0; CURIOSITY_RE.forEach(r=>{if(r.test(s))h++;});
+  const sc=[2,5,7,9,10][Math.min(h,4)];
+  const d={2:'Nothing to make them want to open',5:'Mild interest signal',7:'Creates a reason to open',9:'Strong curiosity hook',10:'Irresistible opener'}[sc]||'Strong curiosity hook';
+  return {score:sc,detail:d};
+}
+
+function sClarity(s){
+  const w=wc(s);
+  const hasN=/\b(email|call|meeting|demo|intro|report|proposal|question|idea|feedback|follow|pipeline|revenue|deal|contract|project|product|team|help|advice|thought|raise|funding)\b/i.test(s);
+  let sc;
+  if(w<=2) sc=hasN?5:3;
+  else if(w<=6) sc=hasN?9:7;
+  else if(w<=9) sc=hasN?8:6;
+  else sc=hasN?6:4;
+  const d=sc>=8?'Topic is immediately obvious':sc>=5?'Topic is broadly guessable':'Hard to tell what this email is about';
+  return {score:sc,detail:d};
+}
+
+function sLength(s){
+  const w=wc(s);
+  const sc=w<=4?9:w<=8?10:w<=10?7:w<=12?5:2;
+  const d=w<=8?`${w} words — ideal`:w<=10?`${w} words — slightly long`:w<=12?`${w} words — pushing limit`:`${w} words — too long`;
+  return {score:sc,detail:d};
+}
+
+function sSpam(s){
+  const l=s.toLowerCase();
+  const hits=SPAM_WORDS.filter(w=>l.includes(w.toLowerCase()));
+  const sc=hits.length===0?10:hits.length===1?5:hits.length===2?3:1;
+  const d=hits.length===0?'No spam triggers':'Spam triggers: "'+hits.slice(0,3).join('", "')+'"';
+  return {score:sc,detail:d};
+}
+
+const DIMS=[
+  {key:'p',label:'Personalisation',icon:'🎯',fn:sPersonal,
+   fixes:["Add the prospect's company name or reference a recent post.",
+          "Mention their specific role, team, or a trigger event (e.g. new hire, funding round).",
+          "Reference something they did — a post, a launch, a job change."]},
+  {key:'c',label:'Curiosity',icon:'🪝',fn:sCuriosity,
+   fixes:["End with a question mark to create a curiosity gap.",
+          "Tease a result without revealing it: 'how [Company] cut churn by 30%'.",
+          "Use a pattern-interrupt: challenge an assumption they hold."]},
+  {key:'cl',label:'Clarity',icon:'🔍',fn:sClarity,
+   fixes:["Add a concrete noun so the topic is obvious in one glance.",
+          "State the value directly — vague mystery rarely converts.",
+          "Cut filler and name the actual subject of the email."]},
+  {key:'l',label:'Length',icon:'📏',fn:sLength,
+   fixes:["Aim for 5–8 words — sweet spot for mobile opens.",
+          "Cut adjectives and filler until you're under 8 words.",
+          "Over 12 words? Put the extras in the preview text instead."]},
+  {key:'s',label:'Spam Risk',icon:'🚨',fn:sSpam,
+   fixes:["Remove 'free', 'guaranteed', 'urgent' — they trigger filters.",
+          "Replace '% off' with outcome language ('save 3 hrs/week').",
+          "Strip ALL-CAPS, exclamation marks, and promotional buzzwords."]}
+];
+
+function fullScore(s){
+  const res=DIMS.map(d=>{const r=d.fn(s);return{...d,score:r.score,detail:r.detail};});
+  const total=res.reduce((a,r)=>a+r.score,0);
+  return {dims:res,total};
+}
+
+/* ──────────────────── SCORE TAB ──────────────────── */
+
+document.getElementById('s-input').addEventListener('input',function(){
+  const w=wc(this.value), el=document.getElementById('s-wc');
+  if(!this.value.trim()){el.textContent='';el.className='wc';return;}
+  el.textContent=`${w} word${w!==1?'s':''}`;
+  el.className='wc '+(w<=8?'good':'warn');
+});
+
+function scoreIt(){
+  const input=document.getElementById('s-input').value.trim();
+  if(!input) return;
+
+  const {dims,total}=fullScore(input);
+  const lowest=[...dims].sort((a,b)=>a.score-b.score)[0];
+
+  let grade,gc;
+  if(total>=42){grade='Excellent';gc='bg-green';}
+  else if(total>=30){grade='Good';gc='bg-amber';}
+  else if(total>=18){grade='Weak';gc='bg-red';}
+  else{grade='Poor';gc='bg-red';}
+
+  const tc=cc(total/5);
+  document.getElementById('r-subject').textContent=`"${input}"`;
+  const te=document.getElementById('r-total');
+  te.textContent=total; te.className=`big-score ${tc.t}`;
+  const gp=document.getElementById('r-grade');
+  gp.textContent=grade; gp.className=`grade-pill ${gc}`;
+
+  const dc=document.getElementById('r-dims');
+  dc.innerHTML='';
+  dims.forEach(r=>{
+    const c=cc(r.score);
+    const row=document.createElement('div');
+    row.className='dim-row';
+    row.innerHTML=`
+      <div class="dim-icon">${r.icon}</div>
+      <div class="dim-info">
+        <div class="dim-name">${r.label}</div>
+        <div class="dim-desc">${r.detail}</div>
+      </div>
+      <div class="dim-right">
+        <div class="dim-score ${c.t}">${r.score}<span style="font-size:11px;color:#3d4461;font-weight:400">/10</span></div>
+        <div class="bar-track"><div class="bar-fill ${c.b}" style="width:${r.score*10}%"></div></div>
+      </div>`;
+    dc.appendChild(row);
+  });
+
+  document.getElementById('score-results').style.display='block';
+  document.getElementById('score-results').classList.add('fade-in');
+
+  const fixIdx=Math.floor(Math.random()*lowest.fixes.length);
+  document.getElementById('r-fix-text').innerHTML=`<strong>Fix ${lowest.label}:</strong> ${lowest.fixes[fixIdx]}`;
+  document.getElementById('r-fix').style.display='block';
+
+  // Generate alternatives
+  buildAlts(input);
+
+  document.getElementById('score-results').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function buildAlts(original){
+  // Extract any name/company hints from the original
+  const words=original.split(' ');
+  const hasCompany=words.find(w=>w.length>3 && w[0]===w[0].toUpperCase() && w!==words[0]);
+  const co=hasCompany||'[Company]';
+
+  const alts=generateFromContext('','','',[],co,'');
+  const top=alts.filter(a=>a.subject.toLowerCase()!==original.toLowerCase()).slice(0,4);
+
+  const wrap=document.getElementById('r-alts-wrap');
+  const list=document.getElementById('r-alts');
+  list.innerHTML='';
+  top.forEach(a=>{
+    const c=cc(a.score/5);
+    const el=document.createElement('div');
+    el.className='gen-item';
+    el.title='Click to copy';
+    el.onclick=()=>copyLine(a.subject,el);
+    el.innerHTML=`
+      <div class="gen-left">
+        <div class="gen-subject">${a.subject}</div>
+        <div class="gen-pattern">${a.pattern}</div>
+      </div>
+      <div class="gen-score-wrap">
+        <div class="gen-score ${c.t}">${a.score}</div>
+        <div class="gen-denom">/50</div>
+      </div>`;
+    list.appendChild(el);
+  });
+  wrap.style.display='block';
+}
+
+/* ──────────────────── GENERATE TAB ──────────────────── */
+
+function generateFromContext(name,company,role,pain,fallbackCo,value){
+  const n=name||null;
+  const co=company||fallbackCo||'[Company]';
+  const role_word=role? role.split(/[\s,\/]/)[0] : null; // first word of role
+  const painStr=pain||'';
+  const valStr=value||'';
+
+  // Build a pool of templates
+  const pool=[
+    {t:`Quick question about ${co}'s ${role_word?role_word+' ':'' }pipeline?`,                           p:'Question + company + topic'},
+    {t:`Idea for ${co}'s ${role_word||'team'}`,                                                          p:'Direct value signal'},
+    {t:n?`${n} — thought of you after seeing ${co}'s recent news`:`Thought of you — ${co}`,              p:'Personalised trigger'},
+    {t:n?`${n}, quick question about your team`:'Quick question for you',                                p:'Name + curiosity gap'},
+    {t:`How similar ${role_word||'teams'} are cutting ramp time in half`,                                p:'Social proof + outcome'},
+    {t:`${co} + ${valStr?valStr:'us'} — worth a 15-min chat?`,                                          p:'Collaboration framing'},
+    {t:n?`${n} — most ${role_word||'leaders'} skip this one step`:'Most leaders skip this one step',    p:'Pattern interrupt'},
+    {t:painStr?`Re: ${painStr.slice(0,35)}`:`Re: scaling your ${role_word||'sales'} team`,               p:'Pseudo-reply trigger'},
+    {t:`How ${co} could ${valStr?'use '+valStr:'save 5 hrs/week'}`,                                     p:'Outcome + company name'},
+    {t:n?`${n}, saw ${co}'s growth — had an idea`:`Saw ${co}'s growth — had an idea`,                   p:'Trigger event + idea'},
+    {t:`The ${role_word||'sales'} mistake costing ${co} deals`,                                          p:'Problem framing'},
+    {t:n?`${n} — is ${co} open to a new approach on ${role_word||'this'}?`:
+         `Is ${co} open to a new approach?`,                                                             p:'Open-ended opportunity'},
+    {t:`What ${co}'s top competitors are doing differently`,                                              p:'Competitive intelligence hook'},
+    {t:n?`${n}, one thing that helped teams like ${co}`:`One thing that helped teams like ${co}`,       p:'Social proof, personal'},
+  ];
+
+  // Score each, deduplicate, sort descending
+  const seen=new Set();
+  return pool
+    .map(item=>({subject:item.t,pattern:item.p,score:fullScore(item.t).total}))
+    .filter(item=>{if(seen.has(item.subject))return false;seen.add(item.subject);return true;})
+    .sort((a,b)=>b.score-a.score);
+}
+
+function generate(){
+  const name    = document.getElementById('g-name').value.trim();
+  const company = document.getElementById('g-company').value.trim();
+  const role    = document.getElementById('g-role').value.trim();
+  const value   = document.getElementById('g-value').value.trim();
+  const pain    = document.getElementById('g-pain').value.trim();
+
+  if(!name && !company && !role && !value && !pain){
+    document.getElementById('g-name').focus();
+    return;
+  }
+
+  const ranked=generateFromContext(name,company,role,pain,'',value);
+  const top=ranked.slice(0,6);
+
+  const list=document.getElementById('gen-list');
+  list.innerHTML='';
+
+  top.forEach(a=>{
+    const c=cc(a.score/5);
+    const el=document.createElement('div');
+    el.className='gen-item';
+    el.title='Click to copy';
+    el.onclick=()=>copyLine(a.subject,el);
+    el.innerHTML=`
+      <div class="gen-left">
+        <div class="gen-subject">${a.subject}</div>
+        <div class="gen-pattern">${a.pattern}</div>
+      </div>
+      <div class="gen-score-wrap">
+        <div class="gen-score ${c.t}">${a.score}</div>
+        <div class="gen-denom">/50</div>
+      </div>`;
+    list.appendChild(el);
+  });
+
+  document.getElementById('copy-hint').textContent='Click any subject line to copy it.';
+  const res=document.getElementById('gen-results');
+  res.style.display='block';
+  res.classList.add('fade-in');
+  res.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+/* ──────────────────── COPY ──────────────────── */
+
+function copyLine(text,el){
+  navigator.clipboard.writeText(text).then(()=>{
+    const subj=el.querySelector('.gen-subject');
+    const orig=subj.textContent;
+    subj.textContent='✓ Copied!';
+    subj.classList.add('copied');
+    setTimeout(()=>{subj.textContent=orig;subj.classList.remove('copied');},1500);
+  });
+}
+
+/* ──────────────────── TABS ──────────────────── */
+
+function switchTab(id){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('panel-'+id).classList.add('active');
+  const idx={generate:0,score:1,patterns:2}[id];
+  document.querySelectorAll('.tab')[idx].classList.add('active');
+}
+</script>
+</body>
+</html>
