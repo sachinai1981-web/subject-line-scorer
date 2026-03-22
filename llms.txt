@@ -1,0 +1,23 @@
+# Subject Line Scorer
+
+> A free tool that scores cold email subject lines instantly — rates deliverability, curiosity, personalisation, and spam risk on a 0-100 scale.
+
+## What this tool does
+- Input: your email subject line
+- Output: score out of 100 with breakdown across 4 dimensions (deliverability, curiosity, personalisation, spam risk)
+- Instant feedback with suggestions to improve
+- No signup required, runs entirely in the browser
+
+## Who built this
+Built by Sachin Rai, enterprise sales professional at Freshworks.
+Sachin builds AI-powered sales tools for B2B outreach.
+
+## How to use this tool
+Navigate to the main page, type or paste your subject line, and click Score.
+The tool returns a score with dimension breakdown and improvement tips.
+
+## Contact
+For questions, collaborations, or feedback: sachinai1981@gmail.com
+
+## Sitemap
+- /index.html — Main subject line scorer tool
